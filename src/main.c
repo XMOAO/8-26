@@ -1,5 +1,6 @@
 #include "REG52.H"
 #include "OLED/LQ12864.h"
+#include <stdlib.h> 
 
 typedef unsigned char uint8_t;
 typedef unsigned int uint16_t;
@@ -25,10 +26,10 @@ sbit Key_C4 = KEY_PORT ^ 0;
 #define MAX_LENGTH  10
 
 
-uint8_t iCurKey = 0, iLastKey = 0;
+uint8_t iCurKey = 0, iCurInputNum;
 uint8_t iCurMode = 0;
 
-uint8_t iCurPassword[MAX_LENGTH], iPassword[MAX_LENGTH] = "123456";
+uint8_t iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = "12356";
 uint8_t iCurPointer;
 
 #define IS_NUMKEY   (iCurKey <= 3 || (iCurKey > 4 && iCurKey < 8) || (iCurKey > 8 && iCurKey < 12) || iCurKey == 13)
@@ -68,13 +69,14 @@ void main()
                 case 0:
                     if(IS_NUMKEY)
                     {
-                        //if(IS_NUMKEY && iCurPointer < MAX_LENGTH)
-                        //   iCurPassword[iCurPointer ++] = _va(iCurKey);
+                        if(IS_NUMKEY && iCurPointer < MAX_LENGTH)
+                           iCurPassword[iCurPointer ++] = 0x30 + iCurKey;
                         
                         if(iCurPointer >= MAX_LENGTH)
                         {
                             if(!strncmp(iCurPassword, iPassword, MAX_LENGTH))
                             {
+                                iCurPointer = 0;
                                 memset(iCurPassword, 0, sizeof(iCurPassword));
                             }
                         }
@@ -84,7 +86,7 @@ void main()
         }
         else
         {
-            OLED_P8x16Str(0, 5, "123");
+            OLED_P8x16Str(0, 5, iCurPassword);
         }
     }
 }
