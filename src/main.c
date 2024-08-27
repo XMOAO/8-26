@@ -25,6 +25,7 @@ sbit Key_C4 = KEY_PORT ^ 0;
 #define MAX_LENGTH  10
 
 uint8_t iCurKey = 0, iLastKey = 0;
+uint8_t iCurMode = 0;
 
 uint8_t key_scanner();
 void delay_ms(uint16_t n);
@@ -44,14 +45,13 @@ void main()
     // launch T0
     TR0 = 1;
     
-    OLED_Init(); //OLED³õÊ¼»¯
-    OLED_Fill(0x00); //ÆÁÈ«Ãð
-    delay_ms(200);
-	OLED_P16x16Ch(24,0,1);
-	OLED_P16x16Ch(40,0,2);
-	OLED_P16x16Ch(57,0,3);
-	OLED_P16x16Ch(74,0,4);
-	OLED_P16x16Ch(91,0,5);
+    OLED_Init();
+    OLED_Fill(0x00);
+    delay_ms(20);
+    
+    OLED_ShowString16(0, 0, "请输入密码");
+    OLED_ShowString16(0, 2, "输入码");
+
 
     while (1)
     {
