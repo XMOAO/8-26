@@ -2,7 +2,9 @@
   "name": "8-26",
   "type": "C51",
   "dependenceList": [],
-  "srcDirs": [],
+  "srcDirs": [
+    "src"
+  ],
   "virtualFolder": {
     "name": "<virtual_root>",
     "files": [],
@@ -26,7 +28,10 @@
   },
   "targets": {
     "Target 1": {
-      "excludeList": [],
+      "excludeList": [
+        "<virtual_root>/src",
+        "src/Other"
+      ],
       "toolchain": "Keil_C51",
       "compileConfig": {
         "options": "null"

@@ -1,6 +1,13 @@
 #include "REG52.H"
 #include "OLED/LQ12864.h"
-#include "Other/strtools.h"
+
+typedef unsigned char uint8_t;
+typedef unsigned int uint16_t;
+typedef unsigned long uint32_t;
+
+typedef signed char int8_t;
+typedef signed int int16_t;
+typedef signed long int32_t;
 
 
 #define KEY_PORT    P3
@@ -77,7 +84,7 @@ void main()
         }
         else
         {
-            OLED_P8x16Str(0, 5, _va("%s", iCurPassword));
+            OLED_P8x16Str(0, 5, "123");
         }
     }
 }
