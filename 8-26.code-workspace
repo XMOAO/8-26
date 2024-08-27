@@ -19,7 +19,8 @@
             "*.cpp": "cpp",
             "*.cxx": "cpp",
             "*.cc": "cpp",
-            "REG52.H": "cpp"
+            "REG52.H": "cpp",
+            "STRING.H": "cpp"
         },
         "[yaml]": {
             "editor.insertSpaces": true,
