@@ -218,7 +218,7 @@ void OLED_P8x16Str(unsigned char x, y,unsigned char ch[])
 	}
 }
 /*****************功能描述：显示16*16点阵  显示的坐标（x,y），y为页范围0～7****************************/
-void OLED_P16x16Ch(unsigned char x, y, N)
+void OLED_P16x16Ch(unsigned char x, unsigned char y, N)
 {
 	unsigned char wm=0;
 	unsigned int adder=32*N;
@@ -245,7 +245,7 @@ void OLED_ShowString16(unsigned char x, unsigned char y, const char* str)
 	if(!str)
 		return;
 	
-	for(i = 0; i < sizeof tips; i++)
+	for(i = 0; i < sizeof tips / sizeof tips[0]; i++)
 	{
 		if(!strncmp(tips[i].str, str, MAX_LENGTH_TIPS * 2))
 		{
@@ -271,7 +271,7 @@ void OLED_ShowString16(unsigned char x, unsigned char y, const char* str)
 		if(x2 > 120)
 		{
 			x2 = 0;
-			y2 += 2;
+			y2 ++;
 		}
 	}
 }
