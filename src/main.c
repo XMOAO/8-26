@@ -10,8 +10,9 @@ typedef signed char int8_t;
 typedef signed int int16_t;
 typedef signed long int32_t;
 
-
+// 矩阵按键
 #define KEY_PORT    P3
+#define IS_NUMKEY   (iCurKey && iCurKey <= 9)
 
 sbit Key_R1 = KEY_PORT ^ 7;
 sbit Key_R2 = KEY_PORT ^ 6;
@@ -23,23 +24,29 @@ sbit Key_C2 = KEY_PORT ^ 2;
 sbit Key_C3 = KEY_PORT ^ 1;
 sbit Key_C4 = KEY_PORT ^ 0;
 
-#define MAX_LENGTH  11
+// 密码长度
+#define MAX_PASSWORD_DIG            10
+#define MAX_LENGTH                  MAX_PASSWORD_DIG + 1
 
+// 初始密码
+#define PASSWORD_INIT               "7418956230"
+#define PASSWORD_ERROR_THRESHOLD    3
+#define PASSWORD_ERROR_WAITTIME     3
 
-uint8_t iCurKey;
+// 全局变量及声明
+uint8_t iCurKey, iCurPointer;
 uint8_t iCurMode = 0, iCurStage = 0;
-bit bNeedToCls = 0;
 
-char iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = "12356";
-
-uint8_t iCurPointer;
-
-#define IS_NUMKEY   (iCurKey && iCurKey <= 9)
+bit bInColdDownTime = 0;
+uint8_t iErrorTimes = 0;
+char iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = PASSWORD_INIT;
 
 uint8_t key_scanner();
 void delay_ms(uint16_t n);
 
+#define LINE_TIPS       0
 #define LINE_PASSWORD   3
+
 void main()
 {
     OLED_Init();
@@ -48,7 +55,7 @@ void main()
 
     // 初始化数组
     memset(iCurPassword, 0, sizeof iCurPassword);
-    iCurPassword[10] = '\0';
+    iCurPassword[MAX_PASSWORD_DIG] = '\0';
     
     while (1)
     {
@@ -89,25 +96,43 @@ void main()
                         }
                         else
                         {
+                            iErrorTimes ++;
+                            if(iErrorTimes >= PASSWORD_ERROR_THRESHOLD)
+                            {
+                                iErrorTimes = 0;
+                                bInColdDownTime = 1;
 
+                                OLED_ClearRaw(LINE_TIPS, 16);
+                                OLED_ClearRaw(LINE_PASSWORD, 8);
+                                OLED_ShowString16(0, LINE_TIPS, "密码错误次数过多!");
+                                OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+                            }
                         }
                     }
                     OLED_P8x16Str(0, LINE_PASSWORD, iCurPassword);
                 }
                 else if(iCurStage == 1)
                 {
-                    OLED_ClearRaw(0, 16);
+                    OLED_ClearRaw(LINE_TIPS, 16);
                     OLED_ClearRaw(LINE_PASSWORD, 8);
+                    OLED_ShowString16(0, LINE_TIPS, "密码正确!");
 
-                    OLED_ShowString16(0, 0, "密码正确!");
                     memset(iCurPassword, 0, sizeof iCurPassword);
-                    iCurPassword[10] = '\0';
+                    iCurPassword[MAX_PASSWORD_DIG] = '\0';
 
                     delay_ms(1000);
 
-                    iCurStage = 2;
+                    iCurStage = 0;
+                    iCurMode = 2;
                 }    
-            break;
+                break;
+            }
+
+            // 修改密码模式：
+            case 1:
+            {
+                OLED_ShowString16(0, LINE_TIPS, "请输入密码:");
+                break;
             }
             default:break;
         }
