@@ -213,6 +213,7 @@ void OLED_P8x16Str(unsigned char x, unsigned char y,unsigned char ch[])
 		OLED_Set_Pos(x,y+1);
 		for(i=0;i<8;i++)
 		OLED_WrDat(F8X16[c*16+i+8]);
+
 		x+=8;
 		j++;
 	}
