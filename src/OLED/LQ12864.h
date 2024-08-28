@@ -200,7 +200,7 @@ void OLED_Init(void)
 } 
 
 /*******************功能描述：显示8*16一组标准ASCII字符串	 显示的坐标（x,y），y为页范围0～7****************/
-void OLED_P8x16Str(unsigned char x, y,unsigned char ch[])
+void OLED_P8x16Str(unsigned char x, unsigned char y,unsigned char ch[])
 {
 	unsigned char c=0,i=0,j=0;
 	while (ch[j]!='\0')
@@ -217,6 +217,7 @@ void OLED_P8x16Str(unsigned char x, y,unsigned char ch[])
 		j++;
 	}
 }
+
 /*****************功能描述：显示16*16点阵  显示的坐标（x,y），y为页范围0～7****************************/
 void OLED_P16x16Ch(unsigned char x, unsigned char y, N)
 {
@@ -236,6 +237,7 @@ void OLED_P16x16Ch(unsigned char x, unsigned char y, N)
 	} 	  	
 }
 #include <string.h>
+
 void OLED_ShowString16(unsigned char x, unsigned char y, const char* str)
 {
 	int i, index = -1;
@@ -276,4 +278,15 @@ void OLED_ShowString16(unsigned char x, unsigned char y, const char* str)
 	}
 }
 
+void OLED_ClearRaw(unsigned char y, unsigned char size)
+{
+	if(size == 8)
+	{
+		OLED_P8x16Str(0, y, "                 ");
+	}
+	else
+	{
+		OLED_ShowString16(0, y, "/Cls");
+	}
+}
 #endif

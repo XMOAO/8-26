@@ -21,7 +21,8 @@
             "*.cc": "cpp",
             "REG52.H": "cpp",
             "STRING.H": "cpp",
-            "STDIO.H": "cpp"
+            "STDIO.H": "cpp",
+            "STDLIB.H": "cpp"
         },
         "[yaml]": {
             "editor.insertSpaces": true,

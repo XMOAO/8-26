@@ -1,7 +1,7 @@
 #include "REG52.H"
 #include "OLED/LQ12864.h"
 #include <stdlib.h> 
-
+#include <stdio.h> 
 typedef unsigned char uint8_t;
 typedef unsigned int uint16_t;
 typedef unsigned long uint32_t;
@@ -23,70 +23,71 @@ sbit Key_C2 = KEY_PORT ^ 2;
 sbit Key_C3 = KEY_PORT ^ 1;
 sbit Key_C4 = KEY_PORT ^ 0;
 
-#define MAX_LENGTH  10
+#define MAX_LENGTH  11
 
 
-uint8_t iCurKey = 0, iCurInputNum;
-uint8_t iCurMode = 0;
+uint8_t iCurKey;
+uint8_t iCurMode = 0, iCurStage = 0;
+bit bNeedToCls = 0;
 
-uint8_t iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = "12356";
+char iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = "12356";
 uint8_t iCurPointer;
 
-#define IS_NUMKEY   (iCurKey <= 3 || (iCurKey > 4 && iCurKey < 8) || (iCurKey > 8 && iCurKey < 12) || iCurKey == 13)
+#define IS_NUMKEY   (iCurKey <= 9)
 
 uint8_t key_scanner();
 void delay_ms(uint16_t n);
 
 void main()
 {
-    // set T0 1ms
-    TMOD = 0x01;
-    TH0 = 0xFC;
-    TL0 = 0x18;
-
-    // enable interrupt
-    EA = 1;
-    ET0 = 1;
-
-    // launch T0
-    TR0 = 1;
-    
     OLED_Init();
     OLED_Fill(0x00);
-    delay_ms(20);
-    
-    OLED_ShowString16(0, 0, "请输入密码:");
+    delay_ms(50);
 
+    // 初始化数组
+    memset(iCurPassword, 0, sizeof iCurPassword);
+    iCurPassword[10] = '\0';
+    
     while (1)
     {
         iCurKey = key_scanner();
 
-        if(iCurKey)
-        {
-            switch(iCurMode)
-            {   
-                // 输入密码模式：
-                case 0:
-                    if(IS_NUMKEY)
+        switch(iCurMode)
+        {   
+            // 输入密码模式：
+            case 0:
+            {
+                OLED_ShowString16(0, 0, "请输入密码:");
+
+                if(IS_NUMKEY && iCurKey)
+                {
+                    if(iCurPointer < MAX_LENGTH - 1)
+                        iCurPassword[iCurPointer ++] = 0x30 + iCurKey;
+
+                    if(!strcmp(iCurPassword, iPassword))
                     {
-                        if(IS_NUMKEY && iCurPointer < MAX_LENGTH)
-                           iCurPassword[iCurPointer ++] = 0x30 + iCurKey;
-                        
-                        if(iCurPointer >= MAX_LENGTH)
-                        {
-                            if(!strncmp(iCurPassword, iPassword, MAX_LENGTH))
-                            {
-                                iCurPointer = 0;
-                                memset(iCurPassword, 0, sizeof(iCurPassword));
-                            }
-                        }
+                        iCurStage = 1;
                     }
-                    break;
+
+                    if(!iCurStage)
+                    {
+                        OLED_P8x16Str(0, 3, iCurPassword);
+                    }
+                    else if(iCurStage == 1)
+                    {
+                        OLED_ClearRaw(0, 16);
+                        OLED_ClearRaw(3, 8);
+
+                        OLED_ShowString16(0, 0, "密码正确");
+                        memset(iCurPassword, 0, sizeof iCurPassword);
+                        iCurPassword[10] = '\0';
+
+                        iCurStage = 2;
+                    }    
+                }
+                break;
             }
-        }
-        else
-        {
-            OLED_P8x16Str(0, 5, iCurPassword);
+            default:break;
         }
     }
 }
@@ -95,6 +96,7 @@ uint8_t key_scanner()
 {
     uint8_t iKey = 0;
 	uint8_t iRow = 0;
+    uint8_t iResult = 0;
 	
 	KEY_PORT = 0xFF; 
     
@@ -125,7 +127,21 @@ uint8_t key_scanner()
 			{
 
 			}
-            return iKey;
+            
+            if(iKey > 4 && iKey < 8)
+                iResult = iKey - 1;
+            else if(iKey > 8 && iKey < 12)
+                iResult = iKey - 2;
+            else if(iKey == 4) 
+                iResult = 10;
+            else if(iKey == 8)
+                iResult = 11;
+            else if(iKey == 12)
+                iResult = 12;
+            else 
+                iResult = iKey;
+            
+            return iResult;
         }
     }
 	return 0;
