@@ -1,18 +1,15 @@
 #include "REG52.H"
 #include "OLED/LQ12864.h"
-#include <stdlib.h> 
+#include <stdio.h> 
 
 typedef unsigned char uint8_t;
 typedef unsigned int uint16_t;
-typedef unsigned long uint32_t;
-
 typedef signed char int8_t;
 typedef signed int int16_t;
-typedef signed long int32_t;
 
 // 矩阵按键
 #define KEY_PORT    P3
-#define IS_NUMKEY   (iCurKey && iCurKey <= 9)
+#define IS_NUMKEY   (iCurKey >= 0 && iCurKey <= 9)
 
 sbit Key_R1 = KEY_PORT ^ 7;
 sbit Key_R2 = KEY_PORT ^ 6;
@@ -33,117 +30,208 @@ sbit Key_C4 = KEY_PORT ^ 0;
 #define PASSWORD_ERROR_THRESHOLD    3
 #define PASSWORD_ERROR_WAITTIME     3
 
-// 全局变量及声明
-uint8_t iCurKey, iCurPointer;
+// 全局变量
+int8_t iCurKey, iCurPointer;
 uint8_t iCurMode = 0, iCurStage = 0;
 
-bit bInColdDownTime = 0;
 uint8_t iErrorTimes = 0;
+bit bInColdDownTime = 0;
 char iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = PASSWORD_INIT;
-
-uint8_t key_scanner();
-void delay_ms(uint16_t n);
 
 #define LINE_TIPS       0
 #define LINE_PASSWORD   3
 
+void Init_OLED(void);
+void Init_Password(void);
+void Init_Timer0(void);
+void MainLoop(void);
+void delay_ms(uint16_t n);
+int8_t key_scanner();
+
 void main()
+{
+    Init_OLED();
+    Init_Password();
+    Init_Timer0();
+
+    while (1)
+        MainLoop();
+}
+
+void Init_OLED()
 {
     OLED_Init();
     OLED_Fill(0x00);
     delay_ms(50);
+}
 
+void Init_Password()
+{
     // 初始化数组
     memset(iCurPassword, 0, sizeof iCurPassword);
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
-    
-    while (1)
+}
+
+void Init_Timer0()
+{
+    TMOD |= 0X01;
+	TH0 = (65536 - 50000) / 256;
+	TL0 = (65536 - 50000) % 256;
+    ET0 = 1;
+	TR0 = 1;
+	EA  = 1;
+}
+
+bit bTimerSignal = 0;
+uint8_t iTimerTarget = 0, iTimerCount = 0;
+int16_t iTimerCurent = 0;
+
+void Timer0_Handler() interrupt 1
+{
+    TH0 = (65536 - 50000) / 256;
+	TL0 = (65536 - 50000) % 256;
+
+    if(!iTimerTarget)
+        return;
+
+    if(++iTimerCount >= 20)
     {
-        iCurKey = key_scanner();
+        iTimerCount = 0;
 
-        switch(iCurMode)
-        {   
-            // 输入密码模式：
-            case 0:
-            {
-                OLED_ShowString16(0, 0, "请输入密码:");
-                    
-                if(!iCurStage)
-                {
-                    if(IS_NUMKEY)
-                    {
-                        if(iCurPointer < MAX_LENGTH - 1)
-                            iCurPassword[iCurPointer ++] = 0x30 + iCurKey;
-                    }
-                    // 回退键
-                    else if(iCurKey == 10)
-                    {
-                        if(iCurPointer > 0)
-                        {
-                            if((int8_t)(iCurPointer - 1) >= 0)
-                                iCurPointer --;
-
-                            OLED_P8x16Str((8 * (iCurPointer)), LINE_PASSWORD, "  ");
-                            iCurPassword[iCurPointer] = 0;
-                        }
-                    }
-                    // 确定键
-                    else if(iCurKey == 11)
-                    {
-                        if(!strcmp(iCurPassword, iPassword))
-                        {
-                            iCurStage = 1;
-                        }
-                        else
-                        {
-                            iErrorTimes ++;
-                            if(iErrorTimes >= PASSWORD_ERROR_THRESHOLD)
-                            {
-                                iErrorTimes = 0;
-                                bInColdDownTime = 1;
-
-                                OLED_ClearRaw(LINE_TIPS, 16);
-                                OLED_ClearRaw(LINE_PASSWORD, 8);
-                                OLED_ShowString16(0, LINE_TIPS, "密码错误次数过多!");
-                                OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
-                            }
-                        }
-                    }
-                    OLED_P8x16Str(0, LINE_PASSWORD, iCurPassword);
-                }
-                else if(iCurStage == 1)
-                {
-                    OLED_ClearRaw(LINE_TIPS, 16);
-                    OLED_ClearRaw(LINE_PASSWORD, 8);
-                    OLED_ShowString16(0, LINE_TIPS, "密码正确!");
-
-                    memset(iCurPassword, 0, sizeof iCurPassword);
-                    iCurPassword[MAX_PASSWORD_DIG] = '\0';
-
-                    delay_ms(1000);
-
-                    iCurStage = 0;
-                    iCurMode = 2;
-                }    
-                break;
-            }
-
-            // 修改密码模式：
-            case 1:
-            {
-                OLED_ShowString16(0, LINE_TIPS, "请输入密码:");
-                break;
-            }
-            default:break;
+        if(++ iTimerCurent >= iTimerTarget)
+        {
+            bTimerSignal = 1;
+            iTimerTarget = 0;
+            iTimerCurent = 0;
         }
     }
 }
 
-uint8_t key_scanner()
+void RefreshTimer(uint8_t s)
 {
-    uint8_t iKey = 0;
+    bTimerSignal = 0;
+    iTimerTarget = s;
+    iTimerCount = 0;
+}
+
+void ResetCheckSys()
+{
+    OLED_ClearRaw(LINE_TIPS, 16);
+    OLED_ClearRaw(LINE_TIPS + 2, 16);
+    OLED_ClearRaw(LINE_PASSWORD, 8);
+
+    iCurPointer = 0;
+    memset(iCurPassword, 0, sizeof iCurPassword);
+    iCurPassword[MAX_PASSWORD_DIG] = '\0';
+}
+
+void MainLoop()
+{
+    iCurKey = key_scanner();
+
+    // 输入密码模式
+    if(!iCurMode)
+    {
+        switch(iCurStage)
+        {
+            case 0:
+            {
+                OLED_ShowString16(0, 0, "请输入密码:");
+
+                if(IS_NUMKEY)
+                {
+                    if(iCurPointer < MAX_LENGTH - 1)
+                        iCurPassword[iCurPointer ++] = 0x30 + iCurKey;
+                }
+                // 回退键
+                else if(iCurKey == 10)
+                {
+                    if(iCurPointer > 0)
+                    {
+                        if((int8_t)(iCurPointer - 1) >= 0)
+                            iCurPointer --;
+
+                        OLED_P8x16Str((8 * (iCurPointer)), LINE_PASSWORD, "  ");
+                        iCurPassword[iCurPointer] = 0;
+                    }
+                }
+                // 确定键
+                else if(iCurKey == 11)
+                {
+                    if(!strcmp(iCurPassword, iPassword))
+                    {
+                        iCurStage = 1;
+                    }
+                    else
+                    {
+                        OLED_ClearRaw(LINE_TIPS, 16);
+                        OLED_ClearRaw(LINE_TIPS + 2, 16);
+                        OLED_ClearRaw(LINE_PASSWORD, 8);
+
+                        iErrorTimes ++;
+                        if(iErrorTimes >= PASSWORD_ERROR_THRESHOLD)
+                        {
+                            iErrorTimes = 0;
+                            bInColdDownTime = 1;
+
+                            OLED_ShowString16(0, LINE_TIPS, "密码错误次数过多");
+                            OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+
+                            RefreshTimer(5);
+                            iCurStage = 2;
+                        }
+                        else
+                        {
+                            OLED_ShowString16(0, LINE_TIPS, "密码错误!");
+                            OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+
+                            RefreshTimer(2);
+                            iCurStage = 2;
+                        }
+                        break;
+                    }
+                }
+                OLED_P8x16Str(0, LINE_PASSWORD, iCurPassword);
+                break;
+            }
+            case 1:
+            {
+                ResetCheckSys();
+                OLED_ShowString16(0, LINE_TIPS, "密码正确!");
+
+                iCurStage = 3;
+                break;
+            }
+            case 2:
+            {
+                char szText[2];
+                szText[0] = 0x30 + (iTimerTarget - iTimerCurent); szText[1] = 's';
+                OLED_P8x16Str(16 * 3, LINE_TIPS + 2, szText);
+
+                if(bTimerSignal)
+                {
+                    ResetCheckSys();
+
+                    bTimerSignal = 0;
+                    iCurStage = 0;
+                }
+                break;
+            }
+            default:break;     
+        }
+    }
+    // 修改密码模式
+    else if(iCurMode == 1)
+    {
+        OLED_ShowString16(0, LINE_TIPS, "请输入密码:");
+    }
+}
+
+int8_t key_scanner()
+{
+    int8_t iKey = 0;
 	uint8_t iRow = 0;
-    uint8_t iResult = 0;
+    int8_t iResult = 0;
 	
 	KEY_PORT = 0xFF; 
     
@@ -185,13 +273,15 @@ uint8_t key_scanner()
                 iResult = 11;
             else if(iKey == 12)
                 iResult = 12;
+            else if(iKey == 13)
+                iResult = 0;
             else 
                 iResult = iKey;
             
             return iResult;
         }
     }
-	return 0;
+	return -1;
 }
 
 void delay_ms(uint16_t n)
