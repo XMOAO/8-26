@@ -26,13 +26,19 @@ sbit Key_C4 = KEY_PORT ^ 0;
 #define MAX_LENGTH                  MAX_PASSWORD_DIG + 1
 
 // 初始密码
-#define PASSWORD_INIT               "7418956230"
+#define PASSWORD_INIT               "2004040114"
 #define PASSWORD_ERROR_THRESHOLD    3
 #define PASSWORD_ERROR_WAITTIME     3
 
 // 全局变量
 int8_t iCurKey, iCurPointer;
-uint8_t iCurMode = 0, iCurStage = 0;
+uint8_t iCurMode = 1, iCurStage = 0;
+enum
+{
+    Mode_InputPassword = 1,
+    Mode_ResetPassword = (1 << 2),
+    Mode_SecureDisplay = (1 << 3)
+};
 
 uint8_t iErrorTimes = 0;
 bit bInColdDownTime = 0;
@@ -129,8 +135,22 @@ void MainLoop()
 {
     iCurKey = key_scanner();
 
+    // 明文显示密码
+    if(iCurKey == 12)
+    {
+        if(iCurMode & Mode_SecureDisplay)
+            iCurMode &= ~Mode_SecureDisplay;
+        else
+            iCurMode |= Mode_SecureDisplay;
+    }
+    // 准备更改密码
+    else if(iCurKey == 16)
+    {
+        
+    }
+
     // 输入密码模式
-    if(!iCurMode)
+    if(iCurMode & Mode_InputPassword)
     {
         switch(iCurStage)
         {
@@ -151,7 +171,7 @@ void MainLoop()
                         if((int8_t)(iCurPointer - 1) >= 0)
                             iCurPointer --;
 
-                        OLED_P8x16Str((8 * (iCurPointer)), LINE_PASSWORD, "  ");
+                        OLED_P8x16Str((8 * (iCurPointer)), LINE_PASSWORD, " ");
                         iCurPassword[iCurPointer] = 0;
                     }
                 }
@@ -191,7 +211,23 @@ void MainLoop()
                         break;
                     }
                 }
-                OLED_P8x16Str(0, LINE_PASSWORD, iCurPassword);
+
+                if(!(iCurMode & Mode_SecureDisplay))
+                {
+                    OLED_P8x16Str(0, LINE_PASSWORD, iCurPassword);
+                }
+                else
+                {
+                    uint8_t i = 0;
+                    static uint8_t szSecureInput[MAX_LENGTH];
+                    memset(szSecureInput, '-', sizeof szSecureInput);
+
+                    for(; i < iCurPointer; i++)
+                        *(szSecureInput + i) = '*';
+
+                    OLED_P8x16Str(0, LINE_PASSWORD, szSecureInput);
+                }
+
                 break;
             }
             case 1:
