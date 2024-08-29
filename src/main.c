@@ -23,7 +23,7 @@ sbit Key_C4 = KEY_PORT ^ 0;
 
 // 密码长度
 #define MAX_PASSWORD_DIG            10
-#define MAX_LENGTH                  MAX_PASSWORD_DIG + 1
+#define MAX_PASSWORD_LENGTH         MAX_PASSWORD_DIG + 1
 
 // 初始密码
 #define PASSWORD_INIT               "2004040114"
@@ -42,7 +42,8 @@ enum
 
 uint8_t iErrorTimes = 0;
 bit bInColdDownTime = 0;
-char iCurPassword[MAX_LENGTH] = "", iPassword[MAX_LENGTH] = PASSWORD_INIT;
+char iCurPassword[MAX_PASSWORD_LENGTH] = "", iPassword[MAX_PASSWORD_LENGTH] = PASSWORD_INIT;
+char szSecureInput[MAX_PASSWORD_LENGTH];
 
 #define LINE_TIPS       0
 #define LINE_PASSWORD   3
@@ -76,6 +77,9 @@ void Init_Password()
     // 初始化数组
     memset(iCurPassword, 0, sizeof iCurPassword);
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
+
+    memset(szSecureInput, '-', sizeof szSecureInput);
+    szSecureInput[MAX_PASSWORD_DIG] = '\0';
 }
 
 void Init_Timer0()
@@ -160,7 +164,7 @@ void MainLoop()
 
                 if(IS_NUMKEY)
                 {
-                    if(iCurPointer < MAX_LENGTH - 1)
+                    if(iCurPointer < MAX_PASSWORD_DIG)
                         iCurPassword[iCurPointer ++] = 0x30 + iCurKey;
                 }
                 // 回退键
@@ -171,8 +175,8 @@ void MainLoop()
                         if((int8_t)(iCurPointer - 1) >= 0)
                             iCurPointer --;
 
+                        iCurPassword[iCurPointer] = 0;    
                         OLED_P8x16Str((8 * (iCurPointer)), LINE_PASSWORD, " ");
-                        iCurPassword[iCurPointer] = 0;
                     }
                 }
                 // 确定键
@@ -214,15 +218,20 @@ void MainLoop()
 
                 if(!(iCurMode & Mode_SecureDisplay))
                 {
-                    OLED_P8x16Str(0, LINE_PASSWORD, iCurPassword);
+                    int i;
+                    strncpy(szSecureInput, iCurPassword, iCurPointer);
+                    for(i = iCurPointer; i < sizeof szSecureInput; i++)
+                        *(szSecureInput + i) = '-';
+                    
+                    szSecureInput[10] = '\0';
+
+                    OLED_P8x16Str(0, LINE_PASSWORD, szSecureInput);
                 }
                 else
                 {
-                    uint8_t i = 0;
-                    static uint8_t szSecureInput[MAX_LENGTH];
-                    memset(szSecureInput, '-', sizeof szSecureInput);
-
-                    for(; i < iCurPointer; i++)
+                    int i;
+                    memset(szSecureInput, '-', sizeof szSecureInput - 1);
+                    for(i = 0; i < iCurPointer; i++)
                         *(szSecureInput + i) = '*';
 
                     OLED_P8x16Str(0, LINE_PASSWORD, szSecureInput);
