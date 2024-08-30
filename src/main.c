@@ -7,6 +7,10 @@ typedef unsigned int uint16_t;
 typedef signed char int8_t;
 typedef signed int int16_t;
 
+// 蜂鸣器
+sbit BUZZER = P1 ^ 7;
+sbit SWITCH = P1 ^ 6;
+
 // 矩阵按键
 #define KEY_PORT    P3
 #define IS_NUMKEY   (iCurKey >= 0 && iCurKey <= 9)
@@ -26,13 +30,11 @@ sbit Key_C4 = KEY_PORT ^ 0;
 #define MAX_PASSWORD_LENGTH         MAX_PASSWORD_DIG + 1
 
 // 初始密码
-#define PASSWORD_INIT               "2004040114"
+#define PASSWORD_INIT               "1357924680"
 #define PASSWORD_ERROR_THRESHOLD    3
 #define PASSWORD_ERROR_WAITTIME     3
 
 // 全局变量
-int8_t iCurKey, iCurPointer;
-uint8_t iCurMode = 1, iCurStage = 0;
 enum
 {
     Mode_InputPassword = 1,
@@ -40,14 +42,18 @@ enum
     Mode_SecureDisplay = (1 << 3)
 };
 
+int8_t iCurKey, iCurPointer;
+uint8_t iCurMode = (Mode_InputPassword | Mode_SecureDisplay), iCurStage = 0;
+
 uint8_t iErrorTimes = 0;
 bit bInColdDownTime = 0;
-char iCurPassword[MAX_PASSWORD_LENGTH] = "", iPassword[MAX_PASSWORD_LENGTH] = PASSWORD_INIT;
+char iCurPassword[MAX_PASSWORD_LENGTH], iPassword[MAX_PASSWORD_LENGTH] = PASSWORD_INIT;
 char szSecureInput[MAX_PASSWORD_LENGTH];
 
 #define LINE_TIPS       0
 #define LINE_PASSWORD   3
 
+void Init_Device(void);
 void Init_OLED(void);
 void Init_Password(void);
 void Init_Timer0(void);
@@ -57,12 +63,19 @@ int8_t key_scanner();
 
 void main()
 {
+    Init_Device();
     Init_OLED();
     Init_Password();
     Init_Timer0();
 
     while (1)
         MainLoop();
+}
+
+void Init_Device()
+{
+    BUZZER = 0;
+    SWITCH = 1;
 }
 
 void Init_OLED()
@@ -108,7 +121,7 @@ void Timer0_Handler() interrupt 1
     {
         iTimerCount = 0;
 
-        if(++ iTimerCurent >= iTimerTarget)
+        if( ++ iTimerCurent >= iTimerTarget)
         {
             bTimerSignal = 1;
             iTimerTarget = 0;
@@ -119,6 +132,9 @@ void Timer0_Handler() interrupt 1
 
 void RefreshTimer(uint8_t s)
 {
+    TH0 = (65536 - 50000) / 256;
+	TL0 = (65536 - 50000) % 256;
+
     bTimerSignal = 0;
     iTimerTarget = s;
     iTimerCount = 0;
@@ -188,9 +204,13 @@ void MainLoop()
                     }
                     else
                     {
+                        BUZZER = 1;
+                        
                         OLED_ClearRaw(LINE_TIPS, 16);
                         OLED_ClearRaw(LINE_TIPS + 2, 16);
                         OLED_ClearRaw(LINE_PASSWORD, 8);
+
+                        BUZZER = 0;
 
                         iErrorTimes ++;
                         if(iErrorTimes >= PASSWORD_ERROR_THRESHOLD)
@@ -212,6 +232,7 @@ void MainLoop()
                             RefreshTimer(2);
                             iCurStage = 2;
                         }
+                        
                         break;
                     }
                 }
@@ -233,6 +254,8 @@ void MainLoop()
                     memset(szSecureInput, '-', sizeof szSecureInput - 1);
                     for(i = 0; i < iCurPointer; i++)
                         *(szSecureInput + i) = '*';
+                    
+                    szSecureInput[10] = '\0';
 
                     OLED_P8x16Str(0, LINE_PASSWORD, szSecureInput);
                 }
@@ -243,6 +266,8 @@ void MainLoop()
             {
                 ResetCheckSys();
                 OLED_ShowString16(0, LINE_TIPS, "密码正确!");
+
+                SWITCH = ~SWITCH;
 
                 iCurStage = 3;
                 break;
@@ -264,11 +289,6 @@ void MainLoop()
             }
             default:break;     
         }
-    }
-    // 修改密码模式
-    else if(iCurMode == 1)
-    {
-        OLED_ShowString16(0, LINE_TIPS, "请输入密码:");
     }
 }
 
