@@ -266,10 +266,18 @@ void OLED_ShowString16(unsigned char x, unsigned char y, const char* str)
 	{
 		if(!pos[i])
 			break;
-
-		OLED_P16x16Ch(x2, y2, pos[i]);
-
-		x2 += 16;
+		
+		// 空格？
+		if(pos[i] == -1)
+		{
+			OLED_P8x16Str(x2, y2, " ");
+			x2 += 8;
+		}
+		else
+		{
+			OLED_P16x16Ch(x2, y2, pos[i]);
+			x2 += 16;
+		}
 
 		if(x2 > 120)
 		{

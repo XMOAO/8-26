@@ -30,7 +30,7 @@ sbit Key_C4 = KEY_PORT ^ 0;
 #define MAX_PASSWORD_LENGTH         MAX_PASSWORD_DIG + 1
 
 // 初始密码
-#define PASSWORD_INIT               "1357924680"
+#define PASSWORD_INIT               "123"
 #define PASSWORD_ERROR_THRESHOLD    3
 #define PASSWORD_ERROR_WAITTIME     3
 
@@ -140,11 +140,14 @@ void RefreshTimer(uint8_t s)
     iTimerCount = 0;
 }
 
-void ResetCheckSys()
+void ResetCheckSys(bit clearstring)
 {
-    OLED_ClearRaw(LINE_TIPS, 16);
-    OLED_ClearRaw(LINE_TIPS + 2, 16);
-    OLED_ClearRaw(LINE_PASSWORD, 8);
+    if(clearstring)
+    {
+        OLED_ClearRaw(LINE_TIPS, 16);
+        OLED_ClearRaw(LINE_TIPS + 2, 16);
+        OLED_ClearRaw(LINE_PASSWORD, 8);
+    }
 
     iCurPointer = 0;
     memset(iCurPassword, 0, sizeof iCurPassword);
@@ -166,7 +169,12 @@ void MainLoop()
     // 准备更改密码
     else if(iCurKey == 16)
     {
-        
+        ResetCheckSys(1);
+
+        if(iCurMode & Mode_ResetPassword)
+            iCurMode &= ~Mode_ResetPassword;
+        else
+            iCurMode |= Mode_ResetPassword;
     }
 
     // 输入密码模式
@@ -174,10 +182,18 @@ void MainLoop()
     {
         switch(iCurStage)
         {
-            case 0:
+            case 0: case 4:
             {
-                OLED_ShowString16(0, 0, "请输入密码:");
-
+                if(!(iCurMode & Mode_ResetPassword))
+                    OLED_ShowString16(0, 0, "请输入密码:");
+                else
+                {
+                    if(!iCurStage)
+                        OLED_ShowString16(0, 0, "重置 输入原密码:");
+                    else
+                        OLED_ShowString16(0, LINE_TIPS, "重置 输入新密码:");
+                }
+                    
                 if(IS_NUMKEY)
                 {
                     if(iCurPointer < MAX_PASSWORD_DIG)
@@ -198,11 +214,43 @@ void MainLoop()
                 // 确定键
                 else if(iCurKey == 11)
                 {
-                    if(!strcmp(iCurPassword, iPassword))
+                    bit bFailed = 0;
+
+                    if((iCurMode & Mode_ResetPassword))
                     {
-                        iCurStage = 1;
+                        if(!iCurStage)
+                        {
+                            // 检测输入的密码与原密码是否一致
+                            if(!strcmp(iCurPassword, iPassword))
+                                iCurStage = 4;
+                            else
+                                bFailed = 1;
+                            
+                            OLED_ClearRaw(LINE_PASSWORD, 8);
+
+                            iCurPointer = 0;
+                            memset(iCurPassword, 0, sizeof iCurPassword);
+                            iCurPassword[MAX_PASSWORD_DIG] = '\0';
+                        }
+                        else
+                        {
+                            // 输入的新密码
+                            iCurStage = 5;
+
+                            strncpy(iPassword, iCurPassword, sizeof iPassword - 1);
+                            iPassword[10] = '\0';
+                            ResetCheckSys(1);
+                        }
                     }
                     else
+                    {
+                        if(!strcmp(iCurPassword, iPassword))
+                            iCurStage = 1;
+                        else
+                            bFailed = 1;
+                    }
+
+                    if(bFailed)
                     {
                         BUZZER = 1;
                         
@@ -264,12 +312,12 @@ void MainLoop()
             }
             case 1:
             {
-                ResetCheckSys();
+                ResetCheckSys(1);
+
                 OLED_ShowString16(0, LINE_TIPS, "密码正确!");
-
                 SWITCH = ~SWITCH;
-
                 iCurStage = 3;
+
                 break;
             }
             case 2:
@@ -280,11 +328,22 @@ void MainLoop()
 
                 if(bTimerSignal)
                 {
-                    ResetCheckSys();
+                    ResetCheckSys(1);
 
                     bTimerSignal = 0;
                     iCurStage = 0;
                 }
+                break;
+            }
+            case 5:
+            {
+                OLED_ClearRaw(LINE_PASSWORD, 8);
+                OLED_ShowString16(0, LINE_TIPS, "密码重置成功!");
+                OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+
+                RefreshTimer(2);
+                iCurStage = 2;
+
                 break;
             }
             default:break;     
