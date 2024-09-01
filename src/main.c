@@ -1,11 +1,7 @@
-#include "REG52.H"
+#include "usr_header.h"
 #include "OLED/LQ12864.h"
-#include <stdio.h> 
+#include "EEPROM/EEPROM.h"
 
-typedef unsigned char uint8_t;
-typedef unsigned int uint16_t;
-typedef signed char int8_t;
-typedef signed int int16_t;
 
 // 蜂鸣器
 sbit BUZZER = P1 ^ 7;
@@ -58,7 +54,7 @@ void Init_OLED(void);
 void Init_Password(void);
 void Init_Timer0(void);
 void MainLoop(void);
-void delay_ms(uint16_t n);
+
 int8_t key_scanner();
 
 void main()

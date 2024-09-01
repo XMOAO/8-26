@@ -1,37 +1,3 @@
-/************************************************************************************
-*  Copyright (c), 2013, HelTec Automatic Technology co.,LTD.
-*            All rights reserved.
-*
-* Http:    www.heltec.cn
-* Email:   cn.heltec@gmail.com
-* WebShop: shop105719768.taobao.com
-*
-* File name: codetab.h
-* Project  : OLED
-* Processor: STC89C52
-* Compiler : Keil C51 Compiler
-* 
-* Author : 小林
-* Version: 1.00
-* Date   : 2013.8.8
-* Email  : hello14blog@gmail.com
-* Modification: none
-* 
-* Description:
-* 1. 128*64点整OLED模块功能演示程序的字表，仅适用heltec.taobao.com所售产品;
-* 2. 字表由打包资料中的“取字软件”计算得出;
-* 3. 取字方式 -- 共阴、列行式、逆向输出
-*
-* Others: none;
-*
-* Function List:
-*
-* 1. void delay(unsigned int z) -- 主函数中用于调整显示效果的延时函数,STC89C52 12MHZ z=1时大约延时1ms,其他频率需要自己计算
-* 2. void main(void) -- 主函数
-*
-* History: none;
-*
-*************************************************************************************/
 
 #define MAX_LENGTH_TIPS     20
 
