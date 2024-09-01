@@ -2,19 +2,20 @@
 #include "OLED/LQ12864.h"
 #include "EEPROM/EEPROM.h"
 
-
 // 蜂鸣器
 sbit BUZZER = P1 ^ 7;
 sbit SWITCH = P1 ^ 6;
 
 // 矩阵按键
-#define KEY_PORT    P3
+#define KEY_PORT    P2
 #define IS_NUMKEY   (iCurKey >= 0 && iCurKey <= 9)
 
-sbit Key_R1 = KEY_PORT ^ 7;
-sbit Key_R2 = KEY_PORT ^ 6;
-sbit Key_R3 = KEY_PORT ^ 5;
-sbit Key_R4 = KEY_PORT ^ 4;
+//76543210
+
+sbit Key_R1 = KEY_PORT ^ 4;
+sbit Key_R2 = KEY_PORT ^ 5;
+sbit Key_R3 = KEY_PORT ^ 6;
+sbit Key_R4 = KEY_PORT ^ 7;
 
 sbit Key_C1 = KEY_PORT ^ 3;
 sbit Key_C2 = KEY_PORT ^ 2;
@@ -83,12 +84,32 @@ void Init_OLED()
 
 void Init_Password()
 {
+    int i = 0;
+
+    uint8_t x[8] = "zfy zbl";
+    uint8_t x2[8];
+
+    for(; i < 8; i++)
+    {
+        AT24C02_WriteByte(i, x[i]);
+        delay_ms(20);
+    }
+
+    for(i = 0; i < 8; i++)
+    {
+        *(x2 + i) = AT24C02_ReadByte(i);
+        delay_ms(10);
+    }
+
     // 初始化数组
     memset(iCurPassword, 0, sizeof iCurPassword);
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
 
     memset(szSecureInput, '-', sizeof szSecureInput);
     szSecureInput[MAX_PASSWORD_DIG] = '\0';
+
+
+    OLED_P8x16Str(0, 6, x2);
 }
 
 void Init_Timer0()
