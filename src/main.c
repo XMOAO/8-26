@@ -10,8 +10,6 @@ sbit SWITCH = P1 ^ 6;
 #define KEY_PORT    P2
 #define IS_NUMKEY   (iCurKey >= 0 && iCurKey <= 9)
 
-//76543210
-
 sbit Key_R1 = KEY_PORT ^ 4;
 sbit Key_R2 = KEY_PORT ^ 5;
 sbit Key_R3 = KEY_PORT ^ 6;
@@ -22,21 +20,29 @@ sbit Key_C2 = KEY_PORT ^ 2;
 sbit Key_C3 = KEY_PORT ^ 1;
 sbit Key_C4 = KEY_PORT ^ 0;
 
+// 独立按键
+sbit Key_ResetPassword = P3 ^ 0;
+
 // 密码长度
 #define MAX_PASSWORD_DIG            10
 #define MAX_PASSWORD_LENGTH         MAX_PASSWORD_DIG + 1
 
-// 初始密码
+// 初始密码及阈值
 #define PASSWORD_INIT               "123"
 #define PASSWORD_ERROR_THRESHOLD    3
 #define PASSWORD_ERROR_WAITTIME     3
 
 // 全局变量
+#define LINE_TIPS       0
+#define LINE_PASSWORD   3
+
 enum
 {
     Mode_InputPassword = 1,
     Mode_ResetPassword = (1 << 2),
-    Mode_SecureDisplay = (1 << 3)
+    Mode_SecureDisplay = (1 << 3),
+    Mode_SetSecurities = (1 << 4),
+    Mode_ForgotPassword = (1 << 5),
 };
 
 int8_t iCurKey, iCurPointer;
@@ -47,16 +53,14 @@ bit bInColdDownTime = 0;
 char iCurPassword[MAX_PASSWORD_LENGTH], iPassword[MAX_PASSWORD_LENGTH] = PASSWORD_INIT;
 char szSecureInput[MAX_PASSWORD_LENGTH];
 
-#define LINE_TIPS       0
-#define LINE_PASSWORD   3
-
+// 函数声明
 void Init_Device(void);
 void Init_OLED(void);
 void Init_Password(void);
 void Init_Timer0(void);
 void MainLoop(void);
-
 int8_t key_scanner();
+
 
 void main()
 {
@@ -85,7 +89,7 @@ void Init_OLED()
 void Init_Password()
 {
     // 从EEPROM中尝试读取密码
-    char *iSavedPassword = AT24C02_ReadString();;
+    char *iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_PASSWORD);
 
     // 判断是否读取到了有效密码？
     if(iSavedPassword && iSavedPassword[0] == '&')
@@ -94,8 +98,14 @@ void Init_Password()
         strncpy(iPassword, pDataAddr, sizeof iPassword - 1);
         iPassword[10] = '\0';
     }
-
-    OLED_P8x16Str(0, 6, iPassword);
+/*
+    AT24C02_WriteString(AT24C02_MEMORY_QUES1, "13579");
+    AT24C02_WriteString(AT24C02_MEMORY_QUES2, "24680");
+*/
+    iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES1);
+    OLED_P8x16Str(0, 5, iSavedPassword);
+    iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES2);
+    OLED_P8x16Str(64, 5, iSavedPassword);
 
     // 初始化数组
     memset(iCurPassword, 0, sizeof iCurPassword - 1);
@@ -136,6 +146,8 @@ void Timer0_Handler() interrupt 1
             bTimerSignal = 1;
             iTimerTarget = 0;
             iTimerCurent = 0;
+
+            bInColdDownTime = 0;
         }
     }
 }
@@ -166,7 +178,10 @@ void ResetCheckSys(bit clearstring)
 
 void MainLoop()
 {
-    iCurKey = key_scanner();
+    if(bInColdDownTime)
+        iCurKey = -1;
+    else
+        iCurKey = key_scanner();
 
     // 明文显示密码
     if(iCurKey == 12)
@@ -251,7 +266,7 @@ void MainLoop()
                             iPassword[10] = '\0';
 
                             // 向EEPROM 更新密码
-                            AT24C02_WriteString(iPassword);
+                            AT24C02_WriteString(AT24C02_MEMORY_PASSWORD, iPassword);
                             
                             ResetCheckSys(1);
                         }
@@ -275,10 +290,10 @@ void MainLoop()
                         BUZZER = 0;
 
                         iErrorTimes ++;
+                        bInColdDownTime = 1;
                         if(iErrorTimes >= PASSWORD_ERROR_THRESHOLD)
                         {
                             iErrorTimes = 0;
-                            bInColdDownTime = 1;
 
                             OLED_ShowString16(0, LINE_TIPS, "密码错误次数过多");
                             OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
@@ -336,8 +351,8 @@ void MainLoop()
             }
             case 2:
             {
-                char szText[2];
-                szText[0] = 0x30 + (iTimerTarget - iTimerCurent); szText[1] = 's';
+                char szText[3];
+                szText[0] = 0x30 + (iTimerTarget - iTimerCurent); szText[1] = 's'; szText[2] = '\0';
                 OLED_P8x16Str(16 * 3, LINE_TIPS + 2, szText);
 
                 if(bTimerSignal)
@@ -346,6 +361,9 @@ void MainLoop()
 
                     bTimerSignal = 0;
                     iCurStage = 0;
+
+                    if(iCurMode & Mode_ResetPassword)
+                        iCurMode &= ~Mode_ResetPassword;
                 }
                 break;
             }
@@ -355,6 +373,8 @@ void MainLoop()
                 OLED_ShowString16(0, LINE_TIPS, "密码重置成功!");
                 OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
 
+                bInColdDownTime = 1;
+
                 RefreshTimer(2);
                 iCurStage = 2;
 
@@ -362,6 +382,10 @@ void MainLoop()
             }
             default:break;     
         }
+    }
+    else if(iCurMode & Mode_SetSecurities)
+    {
+        OLED_ShowString16(0, 0, "请输入密码:");
     }
 }
 

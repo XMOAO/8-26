@@ -1,12 +1,13 @@
 #include "EEPROM.h"
 
-sbit SCL = P1 ^ 1;      //串行时钟
-sbit SDA = P1 ^ 0;      //串行数据
-
+// 基址
 #define AT24C02_ADDRESS		0xA0
 
-// 以下内容参考 : https://blog.csdn.net/2302_80796399/article/details/136091365
+// 串行时钟 串行数据
+sbit SCL = P1 ^ 1;
+sbit SDA = P1 ^ 0;
 
+// 以下内容参考 : https://blog.csdn.net/2302_80796399/article/details/136091365
 void I2C_Delay() 
 {
     uint8_t i;
@@ -132,17 +133,17 @@ uint8_t AT24C02_ReadByte(uint8_t WordAddress)
   * @brief  AT24C02写入字符串
   * @param  Data 写入内容
   */
-void AT24C02_WriteString(uint8_t* Data)
+void AT24C02_WriteString(uint8_t StartAddr, uint8_t* Data)
 {
 	uint8_t i;
 
 	// 标志位
-	AT24C02_WriteByte(0, '&');
+	AT24C02_WriteByte(StartAddr, '&');
 
-	for(i = 0; i < 10; i++)
+	for(i = 0; i < 16; i++)
 	{
 		delay_ms(20);
-		AT24C02_WriteByte(i + 1, Data[i]);
+		AT24C02_WriteByte(StartAddr + i + 1, Data[i]);
 	}
 }
 
@@ -150,19 +151,19 @@ void AT24C02_WriteString(uint8_t* Data)
   * @brief  AT24C02读取字符串
   * @retval 读出的数据
   */
-uint8_t* AT24C02_ReadString()
+uint8_t* AT24C02_ReadString(uint8_t StartAddr)
 {
 	uint8_t i = 0;
-	static uint8_t Data[11];
+	static uint8_t Data[16];
 
 	for(; i < sizeof Data; i++)
 	{
-		Data[i] = AT24C02_ReadByte(i);
+		Data[i] = AT24C02_ReadByte(StartAddr + i);
 		delay_ms(10);
-	}
 
-	if(Data[0] != '&')
-		return (void*) 0;
+		if(Data[0] != '&')
+			return (void*) 0;
+	}
 
 	return Data;
 }
