@@ -84,32 +84,25 @@ void Init_OLED()
 
 void Init_Password()
 {
-    int i = 0;
+    // 从EEPROM中尝试读取密码
+    char *iSavedPassword = AT24C02_ReadString();;
 
-    uint8_t x[8] = "zfy zbl";
-    uint8_t x2[8];
-
-    for(; i < 8; i++)
+    // 判断是否读取到了有效密码？
+    if(iSavedPassword && iSavedPassword[0] == '&')
     {
-        AT24C02_WriteByte(i, x[i]);
-        delay_ms(20);
+        char *pDataAddr = (iSavedPassword + 1);
+        strncpy(iPassword, pDataAddr, sizeof iPassword - 1);
+        iPassword[10] = '\0';
     }
 
-    for(i = 0; i < 8; i++)
-    {
-        *(x2 + i) = AT24C02_ReadByte(i);
-        delay_ms(10);
-    }
+    OLED_P8x16Str(0, 6, iPassword);
 
     // 初始化数组
-    memset(iCurPassword, 0, sizeof iCurPassword);
+    memset(iCurPassword, 0, sizeof iCurPassword - 1);
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
 
-    memset(szSecureInput, '-', sizeof szSecureInput);
+    memset(szSecureInput, '-', sizeof szSecureInput - 1);
     szSecureInput[MAX_PASSWORD_DIG] = '\0';
-
-
-    OLED_P8x16Str(0, 6, x2);
 }
 
 void Init_Timer0()
@@ -167,7 +160,7 @@ void ResetCheckSys(bit clearstring)
     }
 
     iCurPointer = 0;
-    memset(iCurPassword, 0, sizeof iCurPassword);
+    memset(iCurPassword, 0, sizeof iCurPassword - 1);
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
 }
 
@@ -246,7 +239,7 @@ void MainLoop()
                             OLED_ClearRaw(LINE_PASSWORD, 8);
 
                             iCurPointer = 0;
-                            memset(iCurPassword, 0, sizeof iCurPassword);
+                            memset(iCurPassword, 0, sizeof iCurPassword - 1);
                             iCurPassword[MAX_PASSWORD_DIG] = '\0';
                         }
                         else
@@ -256,6 +249,10 @@ void MainLoop()
 
                             strncpy(iPassword, iCurPassword, sizeof iPassword - 1);
                             iPassword[10] = '\0';
+
+                            // 向EEPROM 更新密码
+                            AT24C02_WriteString(iPassword);
+                            
                             ResetCheckSys(1);
                         }
                     }

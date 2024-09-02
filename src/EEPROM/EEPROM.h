@@ -13,5 +13,8 @@ uint8_t I2C_ReceiveAck(void);
 void AT24C02_WriteByte(uint8_t WordAddress, uint8_t Data);
 uint8_t AT24C02_ReadByte(uint8_t WordAddress);
 
+void AT24C02_WriteString(uint8_t* Data);
+uint8_t* AT24C02_ReadString();
+
 
 #endif
