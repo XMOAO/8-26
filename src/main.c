@@ -45,7 +45,8 @@ enum
     Mode_ForgotPassword = (1 << 5),
 };
 
-int8_t iCurKey, iCurPointer;
+int8_t iCurKey;
+uint8_t iCurPointer, iCurSelected;
 uint8_t iCurMode = (Mode_InputPassword | Mode_SecureDisplay), iCurStage = 0;
 
 uint8_t iErrorTimes = 0;
@@ -98,14 +99,6 @@ void Init_Password()
         strncpy(iPassword, pDataAddr, sizeof iPassword - 1);
         iPassword[10] = '\0';
     }
-/*
-    AT24C02_WriteString(AT24C02_MEMORY_QUES1, "13579");
-    AT24C02_WriteString(AT24C02_MEMORY_QUES2, "24680");
-*/
-    iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES1);
-    OLED_P8x16Str(0, 5, iSavedPassword);
-    iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES2);
-    OLED_P8x16Str(64, 5, iSavedPassword);
 
     // 初始化数组
     memset(iCurPassword, 0, sizeof iCurPassword - 1);
@@ -176,6 +169,14 @@ void ResetCheckSys(bit clearstring)
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
 }
 
+void SwitchMode(uint8_t mode)
+{
+    if(iCurMode & mode)
+        iCurMode &= ~mode;
+    else
+        iCurMode |= mode;
+}
+
 void MainLoop()
 {
     if(bInColdDownTime)
@@ -186,20 +187,29 @@ void MainLoop()
     // 明文显示密码
     if(iCurKey == 12)
     {
-        if(iCurMode & Mode_SecureDisplay)
-            iCurMode &= ~Mode_SecureDisplay;
-        else
-            iCurMode |= Mode_SecureDisplay;
+        SwitchMode(Mode_SecureDisplay);
+    }
+    // 修改密保
+    else if(iCurKey == 14)
+    {
+        OLED_CLS();
+        ResetCheckSys(0);
+        SwitchMode(Mode_InputPassword);
+        SwitchMode(Mode_SetSecurities);
+    }
+    // 忘记密码
+    else if(iCurKey == 15)
+    {
+        OLED_CLS();
+        ResetCheckSys(0);
+        SwitchMode(Mode_ForgotPassword);
+        SwitchMode(Mode_InputPassword);
     }
     // 准备更改密码
     else if(iCurKey == 16)
     {
         ResetCheckSys(1);
-
-        if(iCurMode & Mode_ResetPassword)
-            iCurMode &= ~Mode_ResetPassword;
-        else
-            iCurMode |= Mode_ResetPassword;
+        SwitchMode(Mode_ResetPassword);
     }
 
     // 输入密码模式
@@ -385,7 +395,18 @@ void MainLoop()
     }
     else if(iCurMode & Mode_SetSecurities)
     {
-        OLED_ShowString16(0, 0, "请输入密码:");
+        OLED_ShowString16(0, 0, "修改密保");
+        OLED_ShowString16(0, 2, "①你的生日");
+        OLED_ShowString16(0, 4, "②手机号码");
+        OLED_ShowString16(0, 6, "③微信账号");
+
+        if(iCurKey > 0 && iCurKey <= 3)
+        {
+            OLED_ShowString16((128 - 16), iCurSelected * 2, "/Null");
+
+            iCurSelected = iCurKey;
+            OLED_ShowString16((128 - 16), iCurKey * 2, "/Left");
+        }
     }
 }
 

@@ -196,7 +196,7 @@ void OLED_ShowString16(uint8_t x, uint8_t y, const char* str)
 	
 	for(i = 0; i < MAX_LENGTH_TIPS; i++)
 	{
-		if(!pos[i])
+		if(i && !pos[i])
 			break;
 		
 		// 空格？
