@@ -32,6 +32,10 @@ sbit Key_ResetPassword = P3 ^ 0;
 #define PASSWORD_ERROR_THRESHOLD    3
 #define PASSWORD_ERROR_WAITTIME     3
 
+// 密保
+#define MAX_QUES                    3
+#define MAX_QUES_LENGTH             10 + 1
+
 // 全局变量
 #define LINE_TIPS       0
 #define LINE_PASSWORD   3
@@ -51,8 +55,10 @@ uint8_t iCurMode = (Mode_InputPassword | Mode_SecureDisplay), iCurStage = 0;
 
 uint8_t iErrorTimes = 0;
 bit bInColdDownTime = 0;
-char iCurPassword[MAX_PASSWORD_LENGTH], iPassword[MAX_PASSWORD_LENGTH] = PASSWORD_INIT;
-char szSecureInput[MAX_PASSWORD_LENGTH];
+idata char iCurPassword[MAX_PASSWORD_LENGTH], iPassword[MAX_PASSWORD_LENGTH] = PASSWORD_INIT;
+idata char szSecureInput[MAX_PASSWORD_LENGTH];
+
+idata char szSecureQuesStuff[MAX_QUES][MAX_QUES_LENGTH], szCurSecureQuesStuff[MAX_QUES][MAX_QUES_LENGTH];
 
 // 函数声明
 void Init_Device(void);
@@ -89,6 +95,7 @@ void Init_OLED()
 
 void Init_Password()
 {
+    int i;
     // 从EEPROM中尝试读取密码
     char *iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_PASSWORD);
 
@@ -106,6 +113,34 @@ void Init_Password()
 
     memset(szSecureInput, '-', sizeof szSecureInput - 1);
     szSecureInput[MAX_PASSWORD_DIG] = '\0';
+
+    for(i = 0; i < MAX_QUES; i++)
+    {
+        char *pDataAddr;
+
+        if(!i)
+            iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES1);
+        else if(i == 1)
+            iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES2);
+        else
+            iSavedPassword = AT24C02_ReadString(AT24C02_MEMORY_QUES3);
+
+        pDataAddr = (iSavedPassword + 1);
+
+        if(iSavedPassword && iSavedPassword[0] == '&')
+        {
+            strncpy(szSecureQuesStuff[i], pDataAddr, MAX_QUES_LENGTH - 1);
+        }
+        else
+        {
+            memset(szSecureQuesStuff[i], 0, MAX_QUES_LENGTH - 1);
+        }
+
+        szSecureQuesStuff[i][MAX_QUES_LENGTH - 1] = '\0';
+
+        memset(szCurSecureQuesStuff[i], 0, MAX_QUES_LENGTH - 1);
+        szCurSecureQuesStuff[i][MAX_QUES_LENGTH - 1] = '\0';
+    }
 }
 
 void Init_Timer0()
@@ -169,6 +204,17 @@ void ResetCheckSys(bit clearstring)
     iCurPassword[MAX_PASSWORD_DIG] = '\0';
 }
 
+void ResetQuesSys()
+{
+    int i;
+    for(i = 0; i < MAX_QUES; i++)
+    {
+        memset(szCurSecureQuesStuff[i], 0, MAX_QUES_LENGTH - 1);
+        szCurSecureQuesStuff[i][MAX_QUES_LENGTH - 1] = '\0';
+    }
+    iCurPointer = 0;
+}
+
 void SwitchMode(uint8_t mode)
 {
     if(iCurMode & mode)
@@ -176,6 +222,7 @@ void SwitchMode(uint8_t mode)
     else
         iCurMode |= mode;
 }
+
 
 void MainLoop()
 {
@@ -193,17 +240,26 @@ void MainLoop()
     else if(iCurKey == 14)
     {
         OLED_CLS();
-        ResetCheckSys(0);
-        SwitchMode(Mode_InputPassword);
-        SwitchMode(Mode_SetSecurities);
+        iCurStage = 0;
+        ResetQuesSys();
+
+        if(!(iCurMode & Mode_SetSecurities))
+            iCurMode = Mode_SetSecurities;
+        else
+            iCurMode = Mode_InputPassword | Mode_SecureDisplay;
     }
     // 忘记密码
     else if(iCurKey == 15)
     {
         OLED_CLS();
-        ResetCheckSys(0);
-        SwitchMode(Mode_ForgotPassword);
-        SwitchMode(Mode_InputPassword);
+        iCurStage = 0;
+        ResetQuesSys();
+
+        if(!(iCurMode & Mode_ForgotPassword))
+            iCurMode = Mode_ForgotPassword;
+        else
+            iCurMode |= Mode_InputPassword | Mode_SecureDisplay;
+            
     }
     // 准备更改密码
     else if(iCurKey == 16)
@@ -393,19 +449,136 @@ void MainLoop()
             default:break;     
         }
     }
-    else if(iCurMode & Mode_SetSecurities)
+    // 修改密保模式
+    else if(((iCurMode & Mode_SetSecurities) || (iCurMode & Mode_ForgotPassword)) && !((iCurMode & Mode_InputPassword)))
     {
-        OLED_ShowString16(0, 0, "修改密保");
-        OLED_ShowString16(0, 2, "①你的生日");
-        OLED_ShowString16(0, 4, "②手机号码");
-        OLED_ShowString16(0, 6, "③微信账号");
+        bit bResetPaw = (iCurMode & Mode_ForgotPassword) ? 1 : 0;
 
-        if(iCurKey > 0 && iCurKey <= 3)
+        // 选择阶段
+        if(!iCurStage)
         {
-            OLED_ShowString16((128 - 16), iCurSelected * 2, "/Null");
+            if(!bResetPaw)
+                OLED_ShowString16(0, 0, "修改密保");
+            else
+                OLED_ShowString16(0, 0, "忘记密码");
 
-            iCurSelected = iCurKey;
-            OLED_ShowString16((128 - 16), iCurKey * 2, "/Left");
+            OLED_ShowString16(0, 2, "①你的生日");
+            OLED_ShowString16(0, 4, "②手机号码");
+            OLED_ShowString16(0, 6, "③微信账号");
+
+            if(iCurKey > 0 && iCurKey <= 3)
+            {
+                if(iCurSelected)
+                    OLED_ShowString16(128 - 16, iCurSelected * 2, "/Null");
+
+                iCurSelected = iCurKey;
+                OLED_ShowString16(128 - 16, iCurKey * 2, "/Left");
+            }
+
+            // 确定键
+            if(iCurKey == 11)
+            {
+                iCurStage = 1;
+                OLED_CLS();
+                delay_ms(20);
+
+                if(!bResetPaw)
+                    OLED_ShowString16(0, 0, "输入修改密保");
+                else
+                    OLED_ShowString16(0, 0, "输入密保答案");
+            }
+        }
+        // 输入阶段
+        else if(iCurStage == 1)
+        {
+            OLED_P8x16Str(0, LINE_PASSWORD, szCurSecureQuesStuff[iCurSelected - 1]);
+
+            if(IS_NUMKEY)
+            {
+                if(iCurPointer < MAX_QUES_LENGTH - 1)
+                    szCurSecureQuesStuff[iCurSelected - 1][iCurPointer ++] = 0x30 + iCurKey;
+            }
+            // 回退键
+            else if(iCurKey == 10)
+            {
+                if(iCurPointer > 0)
+                {
+                    if((int8_t)(iCurPointer - 1) >= 0)
+                        iCurPointer --;
+
+                    szCurSecureQuesStuff[iCurSelected - 1][iCurPointer] = 0;
+                    OLED_P8x16Str((8 * (iCurPointer)), LINE_PASSWORD, " ");
+                }
+            }
+            // 确定键
+            else if(iCurKey == 11)
+            {
+                OLED_ClearRaw(LINE_TIPS + 2, 16);
+                OLED_ClearRaw(LINE_PASSWORD, 8);
+
+                // 替换密保答案
+                if(!bResetPaw)
+                {
+                    strncpy(szSecureQuesStuff[iCurSelected - 1], szCurSecureQuesStuff[iCurSelected - 1], MAX_QUES_LENGTH - 1);
+                    szSecureQuesStuff[iCurSelected - 1][14] = '\0';
+
+                    // 向EEPROM 更新密码
+                    switch((iCurSelected - 1))
+                    {
+                        case 0: AT24C02_WriteString(AT24C02_MEMORY_QUES1, szSecureQuesStuff[iCurSelected - 1]); break;
+                        case 1: AT24C02_WriteString(AT24C02_MEMORY_QUES2, szSecureQuesStuff[iCurSelected - 1]); break;
+                        case 2: AT24C02_WriteString(AT24C02_MEMORY_QUES3, szSecureQuesStuff[iCurSelected - 1]); break;
+                    }
+
+                    OLED_ShowString16(0, LINE_TIPS, "更新密保成功");
+                    OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+
+                    iCurStage = 2;
+                    RefreshTimer(2);
+                }
+                // 检测答案是否正确
+                else
+                {
+                    if(!strcmp(szSecureQuesStuff[iCurSelected - 1], szCurSecureQuesStuff[iCurSelected - 1]))
+                    {
+                        OLED_ShowString16(0, LINE_TIPS, "密保答案正确");
+                        OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+
+                        iCurStage = 3;
+                        RefreshTimer(2);
+                    }  
+                    else
+                    {
+                        OLED_ShowString16(0, LINE_TIPS, "密保答案错误");
+                        OLED_ShowString16(0, LINE_TIPS + 2, "请等待");
+
+                        iCurStage = 2;
+                        RefreshTimer(2);
+                    }
+                }
+            }
+        }
+        // 反馈阶段
+        else if(iCurStage == 2 || iCurStage == 3)
+        {
+            char szText[3];
+            szText[0] = 0x30 + (iTimerTarget - iTimerCurent); szText[1] = 's'; szText[2] = '\0';
+            OLED_P8x16Str(16 * 3, LINE_TIPS + 2, szText);
+
+            if(bTimerSignal)
+            {
+                OLED_ClearRaw(LINE_TIPS, 16);
+                ResetQuesSys();
+
+                bTimerSignal = 0;
+                iCurStage = (iCurStage == 3) ? 4 : 0;
+                iCurSelected = 0;
+            }
+        }
+        else if(iCurStage == 4)
+        {
+            iCurMode = Mode_InputPassword | Mode_SecureDisplay | Mode_ResetPassword;
+            OLED_ClearRaw(LINE_TIPS + 2, 16);
         }
     }
 }

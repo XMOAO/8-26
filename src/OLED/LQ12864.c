@@ -179,7 +179,7 @@ void OLED_ShowString16(uint8_t x, uint8_t y, const char* str)
 
 	if(!str)
 		return;
-	
+		
 	for(i = 0; i < sizeof tips / sizeof tips[0]; i++)
 	{
 		if(!strncmp(tips[i].str, str, MAX_LENGTH_TIPS * 2))
@@ -196,7 +196,7 @@ void OLED_ShowString16(uint8_t x, uint8_t y, const char* str)
 	
 	for(i = 0; i < MAX_LENGTH_TIPS; i++)
 	{
-		if(i && !pos[i])
+		if(!pos[i])
 			break;
 		
 		// 空格？
@@ -211,7 +211,7 @@ void OLED_ShowString16(uint8_t x, uint8_t y, const char* str)
 			x2 += 16;
 		}
 
-		if(x2 > 120)
+		if(x2 > 128)
 		{
 			x2 = 0;
 			y2 ++;
